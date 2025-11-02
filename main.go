@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"sync/atomic"
@@ -11,52 +10,29 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 }
 
-func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cfg.fileserverHits.Add(1)
-		next.ServeHTTP(w, r)
-	})
-}
-
-func (cfg *apiConfig) metricsHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("Hits: %d", cfg.fileserverHits.Load())))
-}
-
-func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request) {
-	cfg.fileserverHits.Store(0)
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Hits reset to 0"))
-}
-
-func readinessHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
-}
-
 func main() {
-	apiCfg := &apiConfig{}
+	const filepathRoot = "."
+	const port = "8080"
 
-	port := "8080"
+	apiCfg := apiConfig{
+		fileserverHits: atomic.Int32{},
+	}
+
 	mux := http.NewServeMux()
+	fsHandler := apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot))))
 
-	fileHandler := http.FileServer(http.Dir("app"))
+	mux.Handle("/app/", fsHandler)
 
-	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", fileHandler)))
+	mux.HandleFunc("GET /api/healthz", handlerReadiness)
 
-	mux.HandleFunc("GET /api/healthz", readinessHandler)
-	mux.HandleFunc("GET /api/metrics", apiCfg.metricsHandler)
-	mux.HandleFunc("POST /api/reset", apiCfg.resetHandler)
+	mux.HandleFunc("POST /admin/reset", apiCfg.handlerReset)
+	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
 
-	server := &http.Server{
+	srv := &http.Server{
 		Addr:    ":" + port,
 		Handler: mux,
 	}
 
-	log.Printf("Server starting on port %s", port)
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatalf("Server failed to start: %v", err)
-	}
+	log.Printf("Serving files from %s on port: %s\n", filepathRoot, port)
+	log.Fatal(srv.ListenAndServe())
 }
