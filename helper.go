@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 	"strings"
 )
@@ -72,42 +71,4 @@ func cleanProfaneWords(text string) string {
 
 	// Rejoin the words
 	return strings.Join(words, " ")
-}
-
-func (cfg *apiConfig) handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
-	// Ensure this is a POST request
-	if r.Method != http.MethodPost {
-		respondWithError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	// Read the request body
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Error reading request body")
-		return
-	}
-
-	// Parse the JSON request
-	var validationReq ChirpValidationRequest
-	err = json.Unmarshal(body, &validationReq)
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid JSON")
-		return
-	}
-
-	// Validate chirp length
-	if len(validationReq.Body) > 140 {
-		respondWithError(w, http.StatusBadRequest, "Chirp is too long")
-		return
-	}
-
-	// Clean the chirp body
-	cleanedBody := cleanProfaneWords(validationReq.Body)
-
-	// Prepare and send the response
-	response := ChirpValidationResponse{
-		CleanedBody: cleanedBody,
-	}
-	respondWithJSON(w, http.StatusOK, response)
 }
