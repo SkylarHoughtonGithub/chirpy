@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 )
 
 type ChirpValidationRequest struct {
@@ -11,60 +12,102 @@ type ChirpValidationRequest struct {
 }
 
 type ChirpValidationResponse struct {
-	Valid bool   `json:"valid,omitempty"`
-	Error string `json:"error,omitempty"`
+	CleanedBody string `json:"cleaned_body,omitempty"`
+	Error       string `json:"error,omitempty"`
+}
+
+// Helper function to respond with an error
+func respondWithError(w http.ResponseWriter, code int, msg string) {
+	response := ChirpValidationResponse{
+		Error: msg,
+	}
+
+	// Use json.Marshal to ensure clean JSON output
+	jsonResponse, err := json.Marshal(response)
+	if err != nil {
+		http.Error(w, "Failed to create JSON response", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	w.Write(jsonResponse)
+}
+
+// Helper function to respond with JSON
+func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
+	// Use json.Marshal to ensure clean JSON output
+	jsonResponse, err := json.Marshal(payload)
+	if err != nil {
+		http.Error(w, "Failed to create JSON response", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	w.Write(jsonResponse)
+}
+
+// Function to clean profane words
+func cleanProfaneWords(text string) string {
+	// List of profane words to replace
+	profaneWords := []string{"kerfuffle", "sharbert", "fornax"}
+
+	// Split the text into words
+	words := strings.Split(text, " ")
+
+	// Replace profane words
+	for i, word := range words {
+		// Convert to lowercase for case-insensitive matching
+		// Preserve original casing of surrounding words
+		lowercaseWord := strings.ToLower(word)
+
+		for _, profane := range profaneWords {
+			if lowercaseWord == profane {
+				words[i] = "****"
+				break
+			}
+		}
+	}
+
+	// Rejoin the words
+	return strings.Join(words, " ")
 }
 
 func (cfg *apiConfig) handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		respondWithError(w, "Error reading request body", http.StatusBadRequest)
+	// Ensure this is a POST request
+	if r.Method != http.MethodPost {
+		respondWithError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
+	// Read the request body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Error reading request body")
+		return
+	}
+
+	// Parse the JSON request
 	var validationReq ChirpValidationRequest
 	err = json.Unmarshal(body, &validationReq)
 	if err != nil {
-		respondWithError(w, "Invalid JSON", http.StatusBadRequest)
+		respondWithError(w, http.StatusBadRequest, "Invalid JSON")
 		return
 	}
 
+	// Validate chirp length
 	if len(validationReq.Body) > 140 {
-		respondWithError(w, "Chirp is too long", http.StatusBadRequest)
+		respondWithError(w, http.StatusBadRequest, "Chirp is too long")
 		return
 	}
 
-	respondWithSuccess(w)
-}
+	// Clean the chirp body
+	cleanedBody := cleanProfaneWords(validationReq.Body)
 
-func respondWithError(w http.ResponseWriter, errorMsg string, statusCode int) {
+	// Prepare and send the response
 	response := ChirpValidationResponse{
-		Error: errorMsg,
+		CleanedBody: cleanedBody,
 	}
-
-	jsonResponse, err := json.Marshal(response)
-	if err != nil {
-		http.Error(w, "Failed to create JSON response", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(statusCode)
-	w.Write(jsonResponse)
-}
-
-func respondWithSuccess(w http.ResponseWriter) {
-	response := ChirpValidationResponse{
-		Valid: true,
-	}
-
-	jsonResponse, err := json.Marshal(response)
-	if err != nil {
-		http.Error(w, "Failed to create JSON response", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write(jsonResponse)
+	respondWithJSON(w, http.StatusOK, response)
 }
