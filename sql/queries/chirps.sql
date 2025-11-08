@@ -7,3 +7,8 @@ RETURNING *;
 SELECT * 
 FROM CHIRPS
 ORDER BY created_at ASC;
+
+-- name: GetChirp :one
+SELECT *
+FROM CHIRPS
+WHERE id = $1;
