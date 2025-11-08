@@ -9,6 +9,36 @@ import (
 	"github.com/skylarhoughtongithub/chirpy/internal/database"
 )
 
+func (cfg *apiConfig) handlerGetAllChirps(w http.ResponseWriter, r *http.Request) {
+	dbChirps, err := cfg.DB.GetAllChirps(r.Context())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Could not retrieve chirps")
+		return
+	}
+
+	type Chirp struct {
+		ID        uuid.UUID `json:"id"`
+		CreatedAt string    `json:"created_at"`
+		UpdatedAt string    `json:"updated_at"`
+		Body      string    `json:"body"`
+		UserID    uuid.UUID `json:"user_id"`
+	}
+
+	chirpResponses := make([]Chirp, 0)
+	for _, dbChirp := range dbChirps {
+		chirpResponses = append(chirpResponses, Chirp{
+			ID:        dbChirp.ID,
+			CreatedAt: dbChirp.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			UpdatedAt: dbChirp.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+			Body:      dbChirp.Body,
+			UserID:    dbChirp.UserID,
+		})
+	}
+
+	respondWithJSON(w, http.StatusOK, chirpResponses)
+
+}
+
 func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
