@@ -29,13 +29,13 @@ func CheckPasswordHash(password, hash string) (bool, error) {
 type TokenType string
 
 const (
-	TokenTypeAccess TokenType = "chirpy-access"
+	TokenTypeAccess TokenType = "chirpy"
 )
 
 func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (string, error) {
 	signingKey := []byte(tokenSecret)
 
-	token := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.RegisteredClaims{
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
 		Issuer:    "chirpy",
 		IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
 		ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(expiresIn)),
