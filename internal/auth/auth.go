@@ -3,15 +3,13 @@ package auth
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
-	"os"
+	"strings"
 	"time"
 
 	"github.com/alexedwards/argon2id"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/joho/godotenv"
 )
 
 func HashPassword(password string) (string, error) {
@@ -83,11 +81,15 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 }
 
 func GetBearerToken(headers http.Header) (string, error) {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+	authHeader := headers.Get("Authorization")
+	if authHeader == "" {
+		return "", errors.New("no Auth header")
 	}
 
-	tokenString := os.Getenv("TOKEN_STRING")
+	parts := strings.Split(authHeader, " ")
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		return "", errors.New("malformed Auth header")
+	}
 
+	return strings.TrimSpace(parts[1]), nil
 }

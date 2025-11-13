@@ -16,6 +16,7 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Email     string    `json:"email"`
+	Token     string    `json:"token,omitempty"`
 }
 
 func (cfg *apiConfig) handlerUsers(w http.ResponseWriter, r *http.Request) {
@@ -77,8 +78,9 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type loginRequest struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+		Email            string `json:"email"`
+		Password         string `json:"password"`
+		ExpiresInSeconds int    `json:"expires_in_seconds"`
 	}
 	var req loginRequest
 	err = json.Unmarshal(body, &req)
@@ -99,11 +101,24 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var expiresIn time.Duration
+	if req.ExpiresInSeconds > 0 {
+		expiresIn = time.Duration(min(req.ExpiresInSeconds, 3600)) * time.Second
+	} else {
+		expiresIn = time.Hour
+	}
+
+	token, err := auth.MakeJWT(dbUser.ID, cfg.JWTSecret, expiresIn)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Could not create token")
+	}
+
 	user := User{
 		ID:        dbUser.ID,
 		CreatedAt: dbUser.CreatedAt,
 		UpdatedAt: dbUser.UpdatedAt,
 		Email:     dbUser.Email,
+		Token:     token,
 	}
 
 	respondWithJSON(w, http.StatusOK, user)

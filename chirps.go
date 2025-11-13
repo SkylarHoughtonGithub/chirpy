@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/skylarhoughtongithub/chirpy/internal/auth"
 	"github.com/skylarhoughtongithub/chirpy/internal/database"
 )
 
@@ -65,6 +66,18 @@ func (cfg *apiConfig) handlerGetAllChirps(w http.ResponseWriter, r *http.Request
 }
 
 func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
+	tokenString, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Missing or malformed Auth header")
+		return
+	}
+
+	userID, err := auth.ValidateJWT(tokenString, cfg.JWTSecret)
+	if err := nil {
+		respondWithError(w, http.StatusUnauthorized, "Invalid token")
+		return
+	}
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Error reading request body")

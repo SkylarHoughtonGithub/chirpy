@@ -15,12 +15,18 @@ import (
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	DB             *database.Queries
+	JWTSecret      string
 }
 
 func main() {
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
+	}
+
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET is not set in .env file")
 	}
 
 	dbUrl := os.Getenv("DB_URL")
@@ -38,6 +44,7 @@ func main() {
 	apiCfg := apiConfig{
 		fileserverHits: atomic.Int32{},
 		DB:             dbQueries,
+		JWTSecret:      jwtSecret,
 	}
 
 	mux := http.NewServeMux()
