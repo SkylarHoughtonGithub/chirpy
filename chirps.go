@@ -73,7 +73,7 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 	}
 
 	userID, err := auth.ValidateJWT(tokenString, cfg.JWTSecret)
-	if err := nil {
+	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "Invalid token")
 		return
 	}
@@ -85,10 +85,11 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 	}
 
 	type createChirpRequest struct {
-		Body   string    `json:"body"`
-		UserID uuid.UUID `json:"user_id"`
+		Body string `json:"body"`
 	}
+
 	var req createChirpRequest
+
 	err = json.Unmarshal(body, &req)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid JSON")
@@ -104,7 +105,7 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 
 	params := database.CreateChirpParams{
 		Body:   cleanedBody,
-		UserID: req.UserID,
+		UserID: userID,
 	}
 
 	dbChirp, err := cfg.DB.CreateChirp(r.Context(), params)

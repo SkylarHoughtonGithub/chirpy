@@ -111,6 +111,7 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	token, err := auth.MakeJWT(dbUser.ID, cfg.JWTSecret, expiresIn)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Could not create token")
+		return
 	}
 
 	user := User{
