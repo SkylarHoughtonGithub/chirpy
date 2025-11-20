@@ -16,6 +16,7 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	DB             *database.Queries
 	JWTSecret      string
+	PolkaKey       string
 }
 
 func main() {
@@ -27,6 +28,11 @@ func main() {
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		log.Fatal("JWT_SECRET is not set in .env file")
+	}
+
+	polkaKey := os.Getenv("POLKA_KEY")
+	if polkaKey == "" {
+		log.Fatal("POLKA_KEY is not set in .env file")
 	}
 
 	dbUrl := os.Getenv("DB_URL")
@@ -45,6 +51,7 @@ func main() {
 		fileserverHits: atomic.Int32{},
 		DB:             dbQueries,
 		JWTSecret:      jwtSecret,
+		PolkaKey:       polkaKey,
 	}
 
 	mux := http.NewServeMux()

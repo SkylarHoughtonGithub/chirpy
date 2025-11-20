@@ -6,9 +6,21 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/skylarhoughtongithub/chirpy/internal/auth"
 )
 
 func (cfg *apiConfig) handlerPolkaWebhook(w http.ResponseWriter, r *http.Request) {
+	apiKey, err := auth.GetAPIKey(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Missing or malformed API key")
+		return
+	}
+
+	if apiKey != cfg.PolkaKey {
+		respondWithError(w, http.StatusUnauthorized, "Invalid API key")
+		return
+	}
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Error reading request body")
@@ -19,7 +31,7 @@ func (cfg *apiConfig) handlerPolkaWebhook(w http.ResponseWriter, r *http.Request
 		Event string `json:"event"`
 		Data  struct {
 			UserId uuid.UUID `json:"user_id"`
-		}
+		} `json:"data"`
 	}
 
 	var req webhookRequest
@@ -37,7 +49,6 @@ func (cfg *apiConfig) handlerPolkaWebhook(w http.ResponseWriter, r *http.Request
 	err = cfg.DB.UpgradeUserToChirpyRed(r.Context(), req.Data.UserId)
 	if err != nil {
 		respondWithError(w, http.StatusNotFound, "User not found")
-
 		return
 	}
 
