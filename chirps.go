@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"sort"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/skylarhoughtongithub/chirpy/internal/auth"
@@ -12,8 +14,8 @@ import (
 
 type Chirp struct {
 	ID        uuid.UUID `json:"id"`
-	CreatedAt string    `json:"created_at"`
-	UpdatedAt string    `json:"updated_at"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 	Body      string    `json:"body"`
 	UserID    uuid.UUID `json:"user_id"`
 }
@@ -34,8 +36,8 @@ func (cfg *apiConfig) handlerGetChirp(w http.ResponseWriter, r *http.Request) {
 
 	chirpResponse := Chirp{
 		ID:        dbChirp.ID,
-		CreatedAt: dbChirp.CreatedAt.Format("2006-01-02T15:04:05Z"),
-		UpdatedAt: dbChirp.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+		CreatedAt: dbChirp.CreatedAt,
+		UpdatedAt: dbChirp.UpdatedAt,
 		Body:      dbChirp.Body,
 		UserID:    dbChirp.UserID,
 	}
@@ -45,6 +47,12 @@ func (cfg *apiConfig) handlerGetChirp(w http.ResponseWriter, r *http.Request) {
 
 func (cfg *apiConfig) handlerGetAllChirps(w http.ResponseWriter, r *http.Request) {
 	authorIDStr := r.URL.Query().Get("author_id")
+
+	sortDirection := "asc"
+	sortOrder := r.URL.Query().Get("sort")
+	if sortOrder == "desc" {
+		sortDirection = "desc"
+	}
 
 	var dbChirps []database.Chirp
 	var err error
@@ -69,12 +77,19 @@ func (cfg *apiConfig) handlerGetAllChirps(w http.ResponseWriter, r *http.Request
 	for _, dbChirp := range dbChirps {
 		chirpResponses = append(chirpResponses, Chirp{
 			ID:        dbChirp.ID,
-			CreatedAt: dbChirp.CreatedAt.Format("2006-01-02T15:04:05Z"),
-			UpdatedAt: dbChirp.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+			CreatedAt: dbChirp.CreatedAt,
+			UpdatedAt: dbChirp.UpdatedAt,
 			Body:      dbChirp.Body,
 			UserID:    dbChirp.UserID,
 		})
 	}
+
+	sort.Slice(chirpResponses, func(i, j int) bool {
+		if sortDirection == "desc" {
+			return chirpResponses[i].CreatedAt.After(chirpResponses[j].CreatedAt)
+		}
+		return chirpResponses[i].CreatedAt.Before(chirpResponses[j].CreatedAt)
+	})
 
 	respondWithJSON(w, http.StatusOK, chirpResponses)
 }
